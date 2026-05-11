@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Firas Nouri — Space Portfolio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Syne',sans-serif}
+#c{position:fixed;inset:0;width:100%;height:100%}
+
+/* ─── CURSOR ─────────────────────────────────────── */
+body{cursor:none}
+#cur{position:fixed;width:8px;height:8px;background:#fff;border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .2s,height .2s,background .2s}
+#cur.big{width:5px;height:5px;background:#7efff5}
+#cur2{position:fixed;width:36px;height:36px;border:1.5px solid rgba(126,255,245,.5);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:width .25s cubic-bezier(.16,1,.3,1),height .25s cubic-bezier(.16,1,.3,1),border-color .25s,transform .08s ease-out}
+#cur2.big{width:56px;height:56px;border-color:rgba(126,255,245,.8)}
+
+/* ─── HUD ─────────────────────────────────────────── */
+#hud{position:fixed;inset:0;z-index:50;pointer-events:none}
+
+/* Corners */
+.ck{position:absolute;width:60px;height:60px;border-color:rgba(126,255,245,.25);border-style:solid}
+.ck-tl{top:20px;left:20px;border-width:1.5px 0 0 1.5px}
+.ck-tr{top:20px;right:20px;border-width:1.5px 1.5px 0 0}
+.ck-bl{bottom:90px;left:20px;border-width:0 0 1.5px 1.5px}
+.ck-br{bottom:90px;right:20px;border-width:0 1.5px 1.5px 0}
+
+/* Scan line subtle flicker */
+#scanline{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.015) 3px,rgba(0,0,0,.015) 4px);pointer-events:none;z-index:1}
+
+/* Top bar */
+#topbar{
+  position:absolute;top:0;left:0;right:0;height:52px;
+  background:linear-gradient(180deg,rgba(0,3,15,.85) 0%,transparent 100%);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;pointer-events:all;
+}
+#logo{font-family:'Syne',sans-serif;font-weight:800;font-size:.88rem;letter-spacing:.25em;color:rgba(126,255,245,.9);text-transform:uppercase}
+#status-bar{display:flex;align-items:center;gap:20px}
+.stat-item{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:rgba(126,255,245,.4);letter-spacing:.12em;display:flex;align-items:center;gap:6px}
+.stat-dot{width:5px;height:5px;border-radius:50%;background:#7efff5;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+/* Bottom rim */
+#rim{
+  position:absolute;bottom:0;left:0;right:0;height:82px;
+  background:linear-gradient(0deg,rgba(0,3,15,.95) 0%,rgba(0,3,15,.7) 70%,transparent 100%);
+  border-top:1px solid rgba(126,255,245,.07);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;pointer-events:all;
+}
+
+/* Radar */
+#radar{width:52px;height:52px;flex-shrink:0}
+#radar svg{width:100%;height:100%}
+
+/* Center nav */
+#center-nav{display:flex;flex-direction:column;align-items:center;gap:10px}
+#vel-row{display:flex;align-items:center;gap:18px}
+#vel-val{font-family:'JetBrains Mono',monospace;font-size:1rem;color:#7efff5;letter-spacing:.05em}
+#vel-lbl{font-family:'JetBrains Mono',monospace;font-size:.48rem;color:rgba(126,255,245,.3);letter-spacing:.18em}
+#dest-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:rgba(126,255,245,.5);letter-spacing:.12em;text-align:center}
+#navdots{display:flex;gap:8px;align-items:center}
+.ndot{
+  width:8px;height:8px;border-radius:50%;cursor:pointer;pointer-events:all;
+  transition:all .3s cubic-bezier(.16,1,.3,1);
+  border:1px solid rgba(255,255,255,.15);
+  position:relative;
+}
+.ndot::after{
+  content:attr(data-l);position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
+  font-family:'JetBrains Mono',monospace;font-size:.46rem;color:rgba(255,255,255,.3);
+  white-space:nowrap;letter-spacing:.08em;opacity:0;transition:opacity .2s;pointer-events:none;
+}
+.ndot:hover::after,.ndot.active::after{opacity:1}
+.ndot:hover{transform:scale(1.6)}
+.ndot.active{transform:scale(2);box-shadow:0 0 12px var(--c)}
+
+/* Heading display */
+#hdg-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+#hdg-num{font-family:'JetBrains Mono',monospace;font-size:1.1rem;color:#7efff5;letter-spacing:.06em}
+#hdg-lbl{font-family:'JetBrains Mono',monospace;font-size:.45rem;color:rgba(126,255,245,.3);letter-spacing:.18em}
+#coord{font-family:'JetBrains Mono',monospace;font-size:.44rem;color:rgba(126,255,245,.25);letter-spacing:.04em}
+
+/* ─── TOOLTIP ─────────────────────────────────────── */
+#tip{
+  position:fixed;pointer-events:none;z-index:200;
+  padding:.5rem 1rem;opacity:0;transition:opacity .18s;
+  transform:translate(-50%,-160%);white-space:nowrap;
+}
+#tip-inner{
+  background:rgba(0,5,20,.9);backdrop-filter:blur(24px);
+  border:1px solid rgba(126,255,245,.15);border-radius:10px;
+  padding:.45rem .9rem;
+}
+#tip-name{font-family:'Syne',sans-serif;font-size:.82rem;font-weight:700;color:#fff}
+#tip-hint{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:rgba(126,255,245,.4);margin-top:.12rem;letter-spacing:.06em}
+
+/* ─── CARD ────────────────────────────────────────── */
+#card{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%) translateY(calc(100% + 2px));
+  width:min(820px,96vw);z-index:500;
+  border-radius:22px 22px 0 0;
+  background:rgba(2,6,22,.97);
+  backdrop-filter:blur(60px) saturate(1.8);
+  border:1px solid rgba(126,255,245,.1);
+  border-bottom:none;
+  box-shadow:0 -40px 120px rgba(0,0,0,.9),0 0 0 1px rgba(126,255,245,.04);
+  transition:transform .65s cubic-bezier(.16,1,.3,1);
+  max-height:80vh;overflow:hidden;display:flex;flex-direction:column;
+}
+#card.open{transform:translateX(-50%) translateY(0)}
+#card-handle{width:36px;height:3px;border-radius:2px;background:rgba(255,255,255,.12);margin:14px auto 8px;flex-shrink:0;cursor:pointer}
+#card-close{
+  position:absolute;top:14px;right:18px;width:28px;height:28px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);
+  color:rgba(255,255,255,.4);cursor:pointer;font-size:.8rem;
+  display:flex;align-items:center;justify-content:center;transition:all .2s;z-index:10
+}
+#card-close:hover{background:rgba(255,255,255,.09);color:#fff}
+#card-inner{overflow-y:auto;flex:1;padding:0 2rem 2rem}
+#card-inner::-webkit-scrollbar{width:2px}
+#card-inner::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+
+/* Card typography */
+.eyebrow{
+  font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.15em;
+  padding:.2rem .75rem;border-radius:100px;display:inline-block;margin-bottom:.9rem;
+}
+.card-h{font-family:'Syne',sans-serif;font-size:clamp(1.5rem,4vw,2.2rem);font-weight:800;color:#fff;line-height:1.1;margin-bottom:.8rem}
+.body{font-family:'Syne',sans-serif;font-size:.88rem;line-height:1.85;color:rgba(255,255,255,.55)}
+.body p{margin-bottom:.8rem}
+.body strong{color:rgba(255,255,255,.88);font-weight:700}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin-top:.8rem}
+@media(max-width:560px){.cols{grid-template-columns:1fr}}
+
+/* Stats */
+.stats{display:flex;gap:.7rem;margin:.8rem 0;flex-wrap:wrap}
+.sbox{
+  flex:1;min-width:80px;padding:.75rem .9rem;border-radius:10px;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);text-align:center;
+}
+.sv{font-family:'JetBrains Mono',monospace;font-size:1.3rem;font-weight:500;line-height:1}
+.sl{font-family:'JetBrains Mono',monospace;font-size:.48rem;letter-spacing:.12em;color:rgba(255,255,255,.25);margin-top:.25rem}
+
+/* Tags */
+.tags{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem}
+.tag{padding:.18rem .65rem;border-radius:100px;font-family:'JetBrains Mono',monospace;font-size:.58rem;border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.38)}
+
+/* Section label */
+.sec{margin-top:1.2rem}
+.sec-lbl{font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;color:rgba(255,255,255,.18);text-transform:uppercase;margin-bottom:.55rem}
+
+/* List item */
+.li{display:flex;gap:.55rem;align-items:flex-start;margin-bottom:.5rem;font-family:'Syne',sans-serif;font-size:.84rem;color:rgba(255,255,255,.5);line-height:1.55}
+.li-dot{width:4px;height:4px;border-radius:50%;margin-top:.5rem;flex-shrink:0}
+
+/* Project card */
+.pc{padding:.85rem 1rem;border-radius:10px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.055);margin-bottom:.55rem;transition:border-color .2s,background .2s}
+.pc:hover{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1)}
+.pc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.3rem}
+.pc-name{font-family:'Syne',sans-serif;font-weight:700;font-size:.86rem;color:#fff}
+.pc-link{color:rgba(255,255,255,.25);text-decoration:none;font-size:.8rem;flex-shrink:0;transition:color .2s}
+.pc:hover .pc-link{color:#7efff5}
+.pc-desc{font-family:'Syne',sans-serif;font-size:.76rem;color:rgba(255,255,255,.4);line-height:1.5;margin-bottom:.55rem}
+
+/* Skill bar */
+.sb{margin-bottom:.6rem}
+.sb-head{display:flex;justify-content:space-between;margin-bottom:.25rem}
+.sb-n{font-family:'Syne',sans-serif;font-size:.8rem;color:rgba(255,255,255,.55)}
+.sb-p{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:rgba(255,255,255,.22)}
+.sb-t{height:2px;background:rgba(255,255,255,.05);border-radius:2px}
+.sb-f{height:100%;border-radius:2px;transition:width 1.2s cubic-bezier(.16,1,.3,1)}
+
+/* Contact link */
+.cl{
+  display:flex;align-items:center;gap:.8rem;padding:.85rem 1rem;border-radius:11px;
+  border:1px solid rgba(255,255,255,.07);color:#fff;text-decoration:none;margin-bottom:.5rem;
+  transition:border-color .2s,background .2s;background:rgba(255,255,255,.02);font-family:'Syne',sans-serif;
+}
+.cl:hover{border-color:rgba(255,255,255,.13);background:rgba(255,255,255,.05)}
+.cl-ico{font-size:1.1rem;flex-shrink:0}
+.cl-main{font-size:.86rem;font-weight:600}
+.cl-sub{font-family:'JetBrains Mono',monospace;font-size:.5rem;color:rgba(255,255,255,.25);letter-spacing:.08em;margin-top:.08rem}
+
+/* Exp card */
+.ec{padding:1rem 1.1rem;border-radius:13px;margin-bottom:.8rem}
+
+/* Tech banner */
+.tb{padding:.65rem .9rem;border-radius:9px;font-family:'JetBrains Mono',monospace;font-size:.68rem;line-height:1.7;margin:.9rem 0}
+
+/* Edu card */
+.edu{padding:.85rem 1rem;border-radius:11px;margin-bottom:.65rem}
+
+/* Action links */
+.alink{color:#7efff5;font-family:'JetBrains Mono',monospace;font-size:.72rem;text-decoration:none;border:1px solid rgba(126,255,245,.2);padding:.3rem .8rem;border-radius:8px;transition:all .2s;display:inline-block}
+.alink:hover{background:rgba(126,255,245,.08);border-color:rgba(126,255,245,.4)}
+
+/* ─── LOADING ─────────────────────────────────────── */
+#load{
+  position:fixed;inset:0;background:#000;z-index:9999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity 1.2s cubic-bezier(.16,1,.3,1);
+}
+#load.out{opacity:0;pointer-events:none}
+.l-name{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(2.5rem,6vw,4rem);letter-spacing:-.03em;margin-bottom:.4rem;background:linear-gradient(135deg,#7efff5 0%,#a78bfa 55%,#f472b6 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.l-sub{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:rgba(255,255,255,.22);letter-spacing:.28em;margin-bottom:2.5rem}
+.l-bar{width:180px;height:1px;background:rgba(255,255,255,.06);overflow:hidden}
+.l-fill{height:100%;background:linear-gradient(90deg,#7efff5,#a78bfa);transition:width .05s linear}
+.l-tip{margin-top:1rem;font-family:'JetBrains Mono',monospace;font-size:.5rem;color:rgba(255,255,255,.15);letter-spacing:.15em}
+</style>
+</head>
+<body>
+
+<div id="load">
+  <div class="l-name">Firas Nouri</div>
+  <div class="l-sub">INITIALISING SPACE PORTFOLIO</div>
+  <div class="l-bar"><div class="l-fill" id="lp"></div></div>
+  <div class="l-tip">USE WASD · DRAG · CLICK PLANETS</div>
+</div>
+
+<canvas id="c"></canvas>
+<div id="cur"></div><div id="cur2"></div>
+
+<div id="hud">
+  <div id="scanline"></div>
+  <div class="ck ck-tl"></div><div class="ck ck-tr"></div>
+  <div class="ck ck-bl"></div><div class="ck ck-br"></div>
+
+  <div id="topbar">
+    <div id="logo">Firas Nouri · PORTFOLIO</div>
+    <div id="status-bar">
+      <div class="stat-item"><div class="stat-dot"></div><span id="vel-lbl2">VELOCITY</span></div>
+      <div class="stat-item" id="vel-val2">0.00 AU/s</div>
+      <div class="stat-item">HDG&nbsp;<span id="hdg-top">000°</span></div>
+    </div>
+  </div>
+
+  <div id="rim">
+    <div id="radar">
+      <svg viewBox="0 0 52 52">
+        <circle cx="26" cy="26" r="24" fill="none" stroke="rgba(126,255,245,.1)" stroke-width=".8"/>
+        <circle cx="26" cy="26" r="14" fill="none" stroke="rgba(126,255,245,.06)" stroke-width=".8"/>
+        <circle cx="26" cy="26" r="7"  fill="none" stroke="rgba(126,255,245,.05)" stroke-width=".8"/>
+        <line x1="2" y1="26" x2="50" y2="26" stroke="rgba(126,255,245,.06)" stroke-width=".5"/>
+        <line x1="26" y1="2" x2="26" y2="50" stroke="rgba(126,255,245,.06)" stroke-width=".5"/>
+        <g id="rblips"></g>
+        <line id="rsweep" x1="26" y1="26" x2="26" y2="3" stroke="rgba(126,255,245,.6)" stroke-width=".8" stroke-linecap="round"/>
+        <circle cx="26" cy="26" r="1.5" fill="rgba(126,255,245,.9)"/>
+      </svg>
+    </div>
+
+    <div id="center-nav">
+      <div id="vel-row">
+        <div style="text-align:center">
+          <div id="vel-val">0.00</div>
+          <div id="vel-lbl">VELOCITY AU/s</div>
+        </div>
+      </div>
+      <div id="dest-lbl">DRIFT MODE</div>
+      <div id="navdots"></div>
+    </div>
+
+    <div id="hdg-wrap">
+      <div id="hdg-num">000°</div>
+      <div id="hdg-lbl">HEADING</div>
+      <div id="coord">0 / 0 / 0</div>
+    </div>
+  </div>
+</div>
+
+<div id="tip"><div id="tip-inner"><div id="tip-name"></div><div id="tip-hint"></div></div></div>
+
+<div id="card">
+  <div id="card-handle" onclick="closeCard()"></div>
+  <button id="card-close" onclick="closeCard()">✕</button>
+  <div id="card-inner"></div>
+</div>
+
+<script>
+// ─── PLANET DATA ─────────────────────────────────────────────────────────────
+const PLANETS = [
+  {id:'home',    label:'HOME',     pos:[0,0,0],        size:5.2,  c1:'#1a3a7a',c2:'#0d2050',c3:'#3366ff',em:'#0a1540',atmo:0x3366ff,aA:.32,ring:null,  gc:'#2255ff',gh:0x2255ff},
+  {id:'about',   label:'ABOUT',   pos:[-62,11,-28],   size:3.6,  c1:'#4a1a7a',c2:'#2d0d55',c3:'#9955ff',em:'#1a0a35',atmo:0x9955ff,aA:.28,ring:0xaa77ff,gc:'#8844ff',gh:0x8844ff},
+  {id:'thesis',  label:'THESIS',  pos:[58,18,-48],    size:4.4,  c1:'#7a4500',c2:'#4a2800',c3:'#ffaa22',em:'#2a1500',atmo:0xffaa33,aA:.26,ring:0xffcc44,gc:'#ffaa22',gh:0xffaa22},
+  {id:'exp',     label:'WORK',    pos:[-44,-9,-88],   size:3.2,  c1:'#004a28',c2:'#002d18',c3:'#22cc77',em:'#001408',atmo:0x22cc77,aA:.26,ring:null,  gc:'#22cc77',gh:0x22cc77},
+  {id:'projects',label:'PROJECTS',pos:[88,-5,-72],    size:4.0,  c1:'#7a0038',c2:'#4a0022',c3:'#ff4488',em:'#280015',atmo:0xff4488,aA:.28,ring:0xff6699,gc:'#ff3377',gh:0xff3377},
+  {id:'skills',  label:'SKILLS',  pos:[-20,24,-138],  size:3.0,  c1:'#003a68',c2:'#001e40',c3:'#3399ff',em:'#000e28',atmo:0x3399ff,aA:.25,ring:0x55aaff,gc:'#2288ff',gh:0x2288ff},
+  {id:'contact', label:'CONTACT', pos:[20,-22,-182],  size:2.8,  c1:'#6a0028',c2:'#400012',c3:'#ff5577',em:'#200010',atmo:0xff5577,aA:.26,ring:null,  gc:'#ff4466',gh:0xff4466},
+];
+
+// ─── RENDERER SETUP ──────────────────────────────────────────────────────────
+let renderer,scene,camera,clock;
+let planetMeshes=[];
+let keys={},mdown=false,lmx=0,lmy=0;
+let yaw=0,pitch=0;
+let vel=new THREE.Vector3();
+let flyActive=false,flyT=0,flyDur=3.2;
+let flyP0,flyP1,flyY0,flyY1,flyPi0,flyPi1;
+let raycaster=new THREE.Raycaster();
+let mouse2=new THREE.Vector2();
+let cardOpen=false;
+let hudTimer=0;
+let radarAngle=0;
+// Cache DOM refs
+let elVelVal,elVelVal2,elHdgNum,elHdgTop,elCoord,elDestLbl,elThrFill,elRsweep,elRblips;
+
+// Loading
+let pct=0;
+const lpEl=document.getElementById('lp');
+const lInt=setInterval(()=>{
+  pct=Math.min(pct+Math.random()*18,100);
+  lpEl.style.width=pct+'%';
+  if(pct>=100){clearInterval(lInt);setTimeout(boot,350);}
+},60);
+
+function boot(){
+  const l=document.getElementById('load');
+  l.classList.add('out');
+  setTimeout(()=>l.remove(),1300);
+  init();
+}
+
+function init(){
+  renderer=new THREE.WebGLRenderer({canvas:document.getElementById('c'),antialias:true,powerPreference:'high-performance'});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(innerWidth,innerHeight);
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.15;
+
+  scene=new THREE.Scene();
+  clock=new THREE.Clock();
+
+  camera=new THREE.PerspectiveCamera(68,innerWidth/innerHeight,0.1,2000);
+  camera.position.set(0,1.5,22);
+
+  // Cache DOM
+  elVelVal=document.getElementById('vel-val');
+  elVelVal2=document.getElementById('vel-val2');
+  elHdgNum=document.getElementById('hdg-num');
+  elHdgTop=document.getElementById('hdg-top');
+  elCoord=document.getElementById('coord');
+  elDestLbl=document.getElementById('dest-lbl');
+  elRsweep=document.getElementById('rsweep');
+  elRblips=document.getElementById('rblips');
+
+  buildStars();
+  buildNebula();
+  buildSun();
+  buildPlanets();
+  buildNav();
+  setupInput();
+  tick();
+
+  window.addEventListener('resize',onResize);
+}
+
+function onResize(){
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+}
+
+// ─── STARS (single draw call per layer via Points) ────────────────────────────
+function buildStars(){
+  // Use PointsMaterial (no custom shader = faster)
+  const layers=[
+    {n:6000,r:[200,600],s:1.0},
+    {n:3000,r:[80,200],s:1.6},
+    {n:800, r:[25,80], s:2.2},
+  ];
+  const colorPalette=[[1,1,1],[.78,.88,1],[1,.96,.82],[.82,.72,1],[.72,.9,1]];
+  layers.forEach(l=>{
+    const N=l.n,pos=new Float32Array(N*3),col=new Float32Array(N*3);
+    for(let i=0;i<N;i++){
+      const r=l.r[0]+Math.random()*(l.r[1]-l.r[0]);
+      const th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1);
+      pos[i*3]=r*Math.sin(ph)*Math.cos(th);
+      pos[i*3+1]=r*Math.sin(ph)*Math.sin(th);
+      pos[i*3+2]=r*Math.cos(ph);
+      const c=colorPalette[Math.floor(Math.random()*colorPalette.length)];
+      const b=.3+Math.random()*.7;
+      col[i*3]=c[0]*b;col[i*3+1]=c[1]*b;col[i*3+2]=c[2]*b;
+    }
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+    g.setAttribute('color',new THREE.BufferAttribute(col,3));
+    const m=new THREE.PointsMaterial({size:l.s,sizeAttenuation:false,vertexColors:true,transparent:true,opacity:.85,depthWrite:false});
+    scene.add(new THREE.Points(g,m));
+  });
+}
+
+// ─── NEBULA ────────────────────────────────────────────────────────────────────
+function buildNebula(){
+  const defs=[
+    {pos:[-80,30,-120],col:0x220066,size:110,op:.14},
+    {pos:[100,20,-150],col:0x440022,size:95,op:.11},
+    {pos:[-30,-40,-200],col:0x001144,size:130,op:.11},
+    {pos:[60,-20,-100],col:0x004422,size:85,op:.09},
+    {pos:[0,50,-180],col:0x333300,size:105,op:.08},
+  ];
+  defs.forEach(d=>{
+    for(let i=0;i<10;i++){
+      const sp=new THREE.Sprite(new THREE.SpriteMaterial({
+        color:d.col,transparent:true,
+        opacity:d.op*(0.5+Math.random()*.5),
+        blending:THREE.AdditiveBlending,depthWrite:false,
+      }));
+      sp.position.set(
+        d.pos[0]+(Math.random()-.5)*d.size*.8,
+        d.pos[1]+(Math.random()-.5)*d.size*.4,
+        d.pos[2]+(Math.random()-.5)*d.size*.8
+      );
+      sp.scale.setScalar(d.size*(0.5+Math.random()*.8));
+      scene.add(sp);
+    }
+  });
+}
+
+// ─── SUN ──────────────────────────────────────────────────────────────────────
+function buildSun(){
+  const pos=new THREE.Vector3(200,150,-100);
+  const sun=new THREE.Mesh(new THREE.SphereGeometry(3,16,16),new THREE.MeshBasicMaterial({color:0xfff5dd}));
+  sun.position.copy(pos);scene.add(sun);
+  const sg=new THREE.Sprite(new THREE.SpriteMaterial({color:0xfff0aa,transparent:true,opacity:.35,blending:THREE.AdditiveBlending,depthWrite:false}));
+  sg.scale.setScalar(80);sg.position.copy(pos);scene.add(sg);
+  const dl=new THREE.DirectionalLight(0xfff8ee,2.8);dl.position.copy(pos);scene.add(dl);
+  scene.add(new THREE.AmbientLight(0x0a0a1a,1.2));
+}
+
+// ─── PLANETS ─────────────────────────────────────────────────────────────────
+// Optimised planet shader — fewer instructions, same visual quality
+const PLANET_VERT=`
+varying vec3 vN;varying vec3 vP;
+void main(){vN=normalMatrix*normal;vP=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
+
+const PLANET_FRAG=`
+uniform vec3 c1,c2,c3,em,ld;
+uniform float t,seed;
+varying vec3 vN,vP;
+float h(vec3 p){p=fract(p*vec3(127.1,311.7,74.7));p+=dot(p,p+19.19);return fract(p.x*p.y*p.z);}
+float n3(vec3 p){vec3 i=floor(p);vec3 f=fract(p);f=f*f*(3.-2.*f);
+  return mix(mix(mix(h(i),h(i+vec3(1,0,0)),f.x),mix(h(i+vec3(0,1,0)),h(i+vec3(1,1,0)),f.x),f.y),
+             mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);}
+float fbm(vec3 p){float v=0.;float a=.5;for(int i=0;i<5;i++){v+=a*n3(p);p*=2.01;a*=.5;}return v;}
+void main(){
+  vec3 n=normalize(vN);
+  vec3 sp=vP*1.3+vec3(seed);
+  float base=fbm(sp*.8+t*.003);
+  float det=fbm(sp*2.2-t*.004);
+  float tx=clamp(base*.6+det*.4,0.,1.);
+  vec3 surf=mix(c2,c1,smoothstep(.3,.65,tx));
+  surf=mix(surf,c3,smoothstep(.6,.78,tx)*.55);
+  float cl=fbm(sp*2.8+vec3(0.,t*.008,0.));
+  surf=mix(surf,vec3(.85,.9,.98),smoothstep(.5,.7,cl)*.3);
+  float diff=max(0.,dot(n,ld));
+  float rim=pow(1.-max(0.,dot(n,vec3(0,0,1))),.8)*.2;
+  float spec=pow(max(0.,dot(reflect(-ld,n),vec3(0,0,1))),24.)*.12;
+  float term=smoothstep(-.04,.18,diff);
+  vec3 lit=surf*(diff*.75+.28)+em*.3+rim*c3+spec;
+  lit*=(.32+.68*term);
+  gl_FragColor=vec4(lit,1.);
+}`;
+
+const ATMO_VERT=`varying vec3 vN;void main(){vN=normalMatrix*normal;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
+const ATMO_FRAG=`
+uniform vec3 col,ld;uniform float op;varying vec3 vN;
+void main(){
+  vec3 n=normalize(vN);
+  float rim=pow(1.-abs(dot(n,vec3(0,0,1))),2.2);
+  float a=rim*op*(0.35+0.65*max(0.,dot(n,ld)))+pow(rim,5.)*.35;
+  gl_FragColor=vec4(col,clamp(a,0.,1.));
+}`;
+
+const LD=new THREE.Vector3(.8,.6,.4).normalize();
+
+function buildPlanets(){
+  PLANETS.forEach((p,i)=>{
+    const g=new THREE.Group();
+    g.position.set(...p.pos);
+
+    const mat=new THREE.ShaderMaterial({
+      uniforms:{t:{value:0},c1:{value:new THREE.Color(p.c1)},c2:{value:new THREE.Color(p.c2)},
+                c3:{value:new THREE.Color(p.c3)},em:{value:new THREE.Color(p.em)},
+                ld:{value:LD.clone()},seed:{value:i*17.3+3.14}},
+      vertexShader:PLANET_VERT,fragmentShader:PLANET_FRAG,
+    });
+    const sphere=new THREE.Mesh(new THREE.SphereGeometry(p.size,48,48),mat);
+    g.add(sphere);
+
+    const atMat=new THREE.ShaderMaterial({
+      uniforms:{col:{value:new THREE.Color(p.atmo)},op:{value:p.aA},ld:{value:LD.clone()}},
+      vertexShader:ATMO_VERT,fragmentShader:ATMO_FRAG,
+      transparent:true,side:THREE.FrontSide,depthWrite:false,
+    });
+    g.add(new THREE.Mesh(new THREE.SphereGeometry(p.size*1.11,32,32),atMat));
+
+    const gm=new THREE.SpriteMaterial({color:p.gc,transparent:true,opacity:.2,blending:THREE.AdditiveBlending,depthWrite:false});
+    const glow=new THREE.Sprite(gm);
+    glow.scale.setScalar(p.size*4.2);g.add(glow);
+
+    const bgm=new THREE.SpriteMaterial({color:p.gc,transparent:true,opacity:.06,blending:THREE.AdditiveBlending,depthWrite:false});
+    const bigGlow=new THREE.Sprite(bgm);
+    bigGlow.scale.setScalar(p.size*11);g.add(bigGlow);
+
+    if(p.ring){
+      const rg=new THREE.RingGeometry(p.size*1.45,p.size*2.4,72);
+      const rp=rg.attributes.position,ru=rg.attributes.uv;
+      for(let j=0;j<rp.count;j++){
+        const x=rp.getX(j),y=rp.getY(j),r=Math.sqrt(x*x+y*y);
+        ru.setXY(j,(r-p.size*1.45)/(p.size),0);
+      }
+      const rm=new THREE.ShaderMaterial({
+        uniforms:{ic:{value:new THREE.Color(p.ring)},oc:{value:new THREE.Color(p.c2)}},
+        vertexShader:`varying vec2 v;void main(){v=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+        fragmentShader:`uniform vec3 ic,oc;varying vec2 v;void main(){float t=v.x;float a=smoothstep(0.,.1,t)*smoothstep(1.,.65,t);gl_FragColor=vec4(mix(ic,oc,t),a*.5);}`,
+        transparent:true,side:THREE.DoubleSide,depthWrite:false,
+      });
+      const ring=new THREE.Mesh(rg,rm);
+      ring.rotation.x=Math.PI/2+(Math.random()-.5)*.35;
+      ring.rotation.z=(Math.random()-.5)*.25;
+      g.add(ring);
+    }
+
+    const pl=new THREE.PointLight(p.gh,2.2,p.size*22);
+    g.add(pl);
+    scene.add(g);
+    planetMeshes.push({group:g,sphere,glow,bigGlow,pLight:pl,mat,data:p,idx:i,baseY:p.pos[1]});
+  });
+}
+
+// ─── NAV ──────────────────────────────────────────────────────────────────────
+function buildNav(){
+  const wrap=document.getElementById('navdots');
+  PLANETS.forEach((p,i)=>{
+    const d=document.createElement('div');
+    d.className='ndot';d.dataset.l=p.label;
+    d.style.setProperty('--c',p.gc);
+    d.style.background=p.gc+'44';
+    d.style.borderColor=p.gc+'33';
+    d.addEventListener('click',()=>flyTo(i));
+    wrap.appendChild(d);
+  });
+}
+function setActiveNav(i){
+  document.querySelectorAll('.ndot').forEach((d,j)=>{
+    d.classList.toggle('active',j===i);
+    d.style.background=j===i?PLANETS[j].gc+'99':PLANETS[j].gc+'44';
+    d.style.boxShadow=j===i?`0 0 12px ${PLANETS[j].gc}`:'none';
+  });
+}
+
+// ─── INPUT ────────────────────────────────────────────────────────────────────
+function setupInput(){
+  window.addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Escape')closeCard();});
+  window.addEventListener('keyup',e=>{keys[e.code]=false;});
+  const cv=document.getElementById('c');
+  cv.addEventListener('mousedown',e=>{mdown=true;lmx=e.clientX;lmy=e.clientY;});
+  window.addEventListener('mouseup',()=>mdown=false);
+  window.addEventListener('mousemove',e=>{
+    const cur=document.getElementById('cur'),cur2=document.getElementById('cur2');
+    cur.style.left=e.clientX+'px';cur.style.top=e.clientY+'px';
+    cur2.style.left=e.clientX+'px';cur2.style.top=e.clientY+'px';
+    if(mdown&&!flyActive){look(e.clientX-lmx,e.clientY-lmy);lmx=e.clientX;lmy=e.clientY;}
+    handleHover(e);
+  });
+  cv.addEventListener('click',e=>{const h=raycast(e);if(h!=null)flyTo(h);});
+  let tx=0,ty=0;
+  cv.addEventListener('touchstart',e=>{mdown=true;tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+  cv.addEventListener('touchmove',e=>{
+    if(mdown&&!flyActive)look(e.touches[0].clientX-tx,e.touches[0].clientY-ty);
+    tx=e.touches[0].clientX;ty=e.touches[0].clientY;
+  },{passive:true});
+  cv.addEventListener('touchend',()=>mdown=false);
+}
+function look(dx,dy){yaw-=dx*.0022;pitch-=dy*.0022;pitch=Math.max(-1.2,Math.min(1.2,pitch));}
+
+function raycast(e){
+  mouse2.x=(e.clientX/innerWidth)*2-1;
+  mouse2.y=-(e.clientY/innerHeight)*2+1;
+  raycaster.setFromCamera(mouse2,camera);
+  const hits=raycaster.intersectObjects(planetMeshes.map(p=>p.sphere));
+  if(!hits.length)return null;
+  return planetMeshes.findIndex(p=>p.sphere===hits[0].object);
+}
+
+let lastHover=-1;
+function handleHover(e){
+  const hi=raycast(e);
+  const cur=document.getElementById('cur'),cur2=document.getElementById('cur2'),tip=document.getElementById('tip');
+  if(hi!==null){
+    cur.classList.add('big');cur2.classList.add('big');
+    tip.style.opacity='1';tip.style.left=e.clientX+'px';tip.style.top=e.clientY+'px';
+    if(hi!==lastHover){
+      document.getElementById('tip-name').textContent=PLANETS[hi].label;
+      document.getElementById('tip-hint').textContent='CLICK TO EXPLORE →';
+      lastHover=hi;
+    }
+  } else {
+    cur.classList.remove('big');cur2.classList.remove('big');
+    if(lastHover!==-1){tip.style.opacity='0';lastHover=-1;}
+  }
+}
+
+// ─── FLY ──────────────────────────────────────────────────────────────────────
+function flyTo(idx){
+  if(flyActive)return;
+  const p=PLANETS[idx];
+  flyActive=true;flyT=0;
+  flyP0=camera.position.clone();
+  const np=new THREE.Vector3(...p.pos);
+  const dir=np.clone().sub(camera.position).normalize();
+  const dist=p.size*3.6;
+  flyP1=np.clone().sub(dir.clone().multiplyScalar(dist));
+  flyP1.y=p.pos[1]+p.size*.25;
+  flyY1=Math.atan2(dir.x,dir.z);flyPi1=Math.asin(Math.max(-1,Math.min(1,dir.y)));
+  flyY0=yaw;flyPi0=pitch;
+  while(flyY1-flyY0>Math.PI)flyY1-=Math.PI*2;
+  while(flyY1-flyY0<-Math.PI)flyY1+=Math.PI*2;
+  setActiveNav(idx);
+  elDestLbl.textContent='→ '+p.label;
+  setTimeout(()=>openCard(idx),flyDur*950);
+}
+
+function eio(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;}
+
+// ─── CARD CONTENT ─────────────────────────────────────────────────────────────
+const CARDS={
+  home:p=>`
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:.9rem;flex-wrap:wrap">
+      <div>
+        <div class="card-h" style="background:linear-gradient(135deg,#7efff5,#6688ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Firas Nouri</div>
+        <div class="eyebrow" style="background:${p.eyeBg};color:${p.eyeTxt}">${p.eyeTxt&&'Munich, Germany · Open to Work'}</div>
+        <div class="eyebrow" style="background:rgba(34,85,255,.14);color:#6688ff">Munich, Germany · Open to enriching opportunities</div>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="sbox"><div class="sv" style="color:#7efff5">3+</div><div class="sl">YEARS EXP</div></div>
+      <div class="sbox"><div class="sv" style="color:#a78bfa">6</div><div class="sl">PROJECTS</div></div>
+      <div class="sbox"><div class="sv" style="color:#fbbf24">4</div><div class="sl">LANGUAGES</div></div>
+    </div>
+    <div class="cols">
+     <div class="body">
+  <p>
+    I am a motivated <strong>Computer Science student</strong> at the
+    <strong>Technical University of Munich</strong> with hands-on experience as a
+    <strong>Working Student</strong> in the Database Development department at
+    <strong>Allianz</strong>.
+  </p>
+  <p>
+    Passionate about building scalable and efficient solutions, with a strong
+    eagerness to continuously learn and take on new challenges. Known for
+    adaptability, problem-solving skills, and a growth-oriented mindset, I thrive
+    in dynamic environments where I can contribute to impactful projects while
+    expanding my technical expertise.
+  </p>
+</div>
+    </div>`,
+
+    about:p=>`
+  <div class="eyebrow" style="background:rgba(136,68,255,.14);color:#aa88ff">Student · Working Student · Builder</div>
+  <div class="card-h">Who I Am.</div>
+  <div class="cols">
+    <div class="body">
+      <p>
+        Born in Tunisia, I graduated from the <strong>Pioneer High School of Sousse</strong>
+        in 2019 with a German-equivalent Baccalaureate grade of <strong>1.7</strong>.
+        At the age of <strong>19</strong>, I moved to Germany to continue my academic
+        and personal journey in one of Europe’s most competitive educational environments.
+      </p>
+
+      <p>
+        I am currently pursuing a <strong>Bachelor of Science in Computer Science</strong>
+        at the <strong>Technical University of Munich</strong>, one of the most renowned
+        and selective universities in Europe. Throughout my studies, I have built a strong
+        foundation in software engineering, databases, mathematics, statistics, and hardware.
+      </p>
+
+      <p>
+        During my education, I have worked on many practical projects that challenged me to
+        apply theory to real-world problems. For my thesis, I focused on
+        <strong>Safe Locomotion using Predictive Safety Filters</strong>, exploring how
+        safety-critical control methods can help autonomous systems move reliably and safely.
+      </p>
+
+      <p>
+        I am driven by curiosity, continuous learning, and the desire to step outside my
+        comfort zone. I enjoy taking on new challenges, improving my technical skills, and
+        building systems that are efficient, reliable, and meaningful.
+      </p>
+    </div>
+
+    <div>
+      <div class="sec">
+        <div class="sec-lbl">Education</div>
+
+        <div class="edu" style="background:rgba(167,139,250,.06);border:1px solid rgba(167,139,250,.14);border-radius:11px">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;color:#fff;font-size:.86rem">
+            Technical University of Munich
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:rgba(255,255,255,.32);margin:.22rem 0">
+            B.Sc. Computer Science · 2021 – Present
+          </div>
+          <div class="tags">
+            <span class="tag">Software Dev</span>
+            <span class="tag">Databases</span>
+            <span class="tag">Mathematics</span>
+            <span class="tag">Statistics</span>
+            <span class="tag">Safe Locomotion</span>
+          </div>
+        </div>
+
+        <div class="edu" style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:11px">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;color:#fff;font-size:.86rem">
+            Pioneer High School of Sousse
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:rgba(255,255,255,.32);margin:.22rem 0">
+            Baccalaureate · Tunisia · 2019
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:#aa88ff;margin-top:.25rem">
+            German-equivalent grade 1.7 — Excellent
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`,
+
+  thesis:p=>`
+  <div class="eyebrow" style="background:rgba(251,191,36,.1);color:#ffcc66">
+    Bachelor's Thesis · TUM · 2026
+  </div>
+
+  <div class="card-h" style="max-width:680px">
+    Safe Locomotion using Predictive Safety Filters
+  </div>
+
+  <div class="tb" style="background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.17);color:rgba(251,191,36,.85)">
+    🦾 Quadruped Robotics &nbsp;·&nbsp; MPPI Planning &nbsp;·&nbsp; Reinforcement Learning &nbsp;·&nbsp; Predictive Safety &nbsp;·&nbsp; MuJoCo Simulation
+  </div>
+
+  <div class="cols">
+    <div class="body">
+      <p>
+        My bachelor’s thesis explores how a quadruped robot can move safely through
+        cluttered environments while still keeping the agility and robustness of a learned
+        locomotion controller. Reinforcement Learning can make robots walk impressively well,
+        but most RL locomotion policies react only to local velocity commands and do not
+        reason far into the future.
+      </p>
+
+      <p>
+        To solve this, I developed a hierarchical <strong>MPPI–RL navigation framework</strong>.
+        A high-level <strong>Model Predictive Path Integral</strong> planner predicts many possible
+        future motions, evaluates their safety, and selects commands that guide the robot
+        around obstacles. These commands are then passed to a pretrained
+        <strong>contact-conditioned RL controller</strong>, which executes the motion at the joint level
+        without retraining the policy.
+      </p>
+
+      <p>
+        The key idea is that the planner does not only decide where the robot should go.
+        It also optimizes <strong>how</strong> the robot should move: base velocity commands, gait
+        parameters, contact timing, and foot placement targets are considered together inside
+        the predictive planning loop. This makes the robot more aware of its environment and
+        allows it to adapt its gait when approaching obstacles or risky configurations.
+      </p>
+
+      <p>
+        I evaluated both <strong>open-loop trajectory optimization</strong> and
+        <strong>closed-loop receding-horizon control</strong> in MuJoCo simulation using a Unitree Go2
+        quadruped model. The results showed consistent obstacle avoidance, adaptive gait
+        modulation, stable locomotion, and real-time feasibility under CPU-only execution.
+      </p>
+    </div>
+
+    <div>
+      <div class="sec">
+        <div class="sec-lbl">What I Built</div>
+        <div class="tags">
+          <span class="tag">MPPI Planner</span>
+          <span class="tag">Predictive Safety Filter</span>
+          <span class="tag">RL Locomotion</span>
+          <span class="tag">Gait Optimization</span>
+          <span class="tag">Footstep Targets</span>
+          <span class="tag">Obstacle Avoidance</span>
+          <span class="tag">Closed-Loop Control</span>
+          <span class="tag">Unitree Go2</span>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-lbl">Core Contribution</div>
+        <div class="edu" style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.16);border-radius:11px;padding:.85rem">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;color:#fff;font-size:.86rem">
+            Safety-aware locomotion without retraining
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.68rem;color:rgba(255,255,255,.45);margin-top:.35rem;line-height:1.55">
+            A predictive planner runs above a pretrained RL controller, adding obstacle-aware
+            planning, gait adaptation, and contact-aware safety while preserving the robustness
+            of the original locomotion policy.
+          </div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-lbl">Technologies</div>
+        <div class="tags">
+          <span class="tag">Python</span>
+          <span class="tag">PyTorch</span>
+          <span class="tag">ROS2</span>
+          <span class="tag">MuJoCo</span>
+          <span class="tag">MPPI Control</span>
+          <span class="tag">Reinforcement Learning</span>
+          <span class="tag">DOOM Framework</span>
+          <span class="tag">Predictive Control</span>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-lbl">Read It</div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.35rem">
+          <a href="thesis.pdf" target="_blank" class="alink" style="color:#fbbf24;border-color:rgba(251,191,36,.25)">📄 Full PDF ↗</a>
+          <a href="https://github.com/firasnouri11/DoomMPC" target="_blank" class="alink" style="color:#fbbf24;border-color:rgba(251,191,36,.25)">⚡ Repo ↗</a>
+        </div>
+      </div>
+    </div>
+  </div>`,
+
+  exp:p=>`
+  <div class="eyebrow" style="background:rgba(34,204,119,.1);color:#44dd99">
+    Experience · Software Engineering · Database Development
+  </div>
+
+  <div class="card-h">Where I've Worked.</div>
+
+  <div class="cols">
+    <div class="ec" style="background:rgba(34,204,119,.05);border:1px solid rgba(34,204,119,.17)">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;color:#34d399;margin-bottom:.25rem">
+        OCT 2022 – PRESENT
+      </div>
+
+      <div style="font-family:'Syne',sans-serif;font-weight:700;color:#fff;font-size:.92rem">
+        Working Student · Database & Software Development
+      </div>
+
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:rgba(255,255,255,.28);margin:.2rem 0 .7rem">
+        IDS GmbH · A company of Allianz · Munich
+      </div>
+
+      <div class="li">
+        <div class="li-dot" style="background:#34d399"></div>
+        <div>
+          Developed and enhanced production software modules using <strong>Java</strong>,
+          contributing to new feature implementation and long-term maintainability.
+        </div>
+      </div>
+
+      <div class="li">
+        <div class="li-dot" style="background:#34d399"></div>
+        <div>
+          Implemented <strong>SQL queries</strong>, stored procedures, and data models to support
+          efficient, reliable, and scalable data handling.
+        </div>
+      </div>
+
+      <div class="li">
+        <div class="li-dot" style="background:#34d399"></div>
+        <div>
+          Worked with <strong>CI/CD pipelines</strong> to streamline development workflows,
+          automate deployments, and ensure consistent delivery of software updates.
+        </div>
+      </div>
+
+      <div class="li">
+        <div class="li-dot" style="background:#34d399"></div>
+        <div>
+          Collaborated with senior developers on <strong>code reviews</strong>, testing,
+          documentation, and software quality improvements.
+        </div>
+      </div>
+
+      <div class="li">
+        <div class="li-dot" style="background:#34d399"></div>
+        <div>
+          Researched and applied new technologies to improve system performance,
+          maintainability, and scalability within enterprise software environments.
+        </div>
+      </div>
+
+      <div class="sec" style="margin-top:.9rem">
+        <div class="sec-lbl">Core Stack</div>
+        <div class="tags">
+          <span class="tag">Java</span>
+          <span class="tag">SQL</span>
+          <span class="tag">Stored Procedures</span>
+          <span class="tag">Databases</span>
+          <span class="tag">CI/CD</span>
+          <span class="tag">Testing</span>
+          <span class="tag">Enterprise Software</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ec" style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06)">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;color:rgba(255,255,255,.28);margin-bottom:.25rem">
+        JUL 2022 – OCT 2022
+      </div>
+
+      <div style="font-family:'Syne',sans-serif;font-weight:700;color:#fff;font-size:.92rem">
+        Working Student · Web Development
+      </div>
+
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:rgba(255,255,255,.28);margin:.2rem 0 .7rem">
+        max2-consulting · Munich
+      </div>
+
+      <div class="li">
+        <div class="li-dot" style="background:rgba(255,255,255,.3)"></div>
+        <div>
+          Designed and developed responsive user interfaces using
+          <strong>HTML</strong>, <strong>CSS</strong>, and <strong>JavaScript</strong>.
+        </div>
+      </div>
+
+      <div class="li">
+        <div class="li-dot" style="background:rgba(255,255,255,.3)"></div>
+        <div>
+          Built and maintained frontend components with a focus on usability,
+          clean structure, and cross-device compatibility.
+        </div>
+      </div>
+
+      <div class="li">
+        <div class="li-dot" style="background:rgba(255,255,255,.3)"></div>
+        <div>
+          Gained early professional experience in client-oriented development,
+          implementation workflows, and practical web engineering.
+        </div>
+      </div>
+
+      <div class="sec" style="margin-top:.9rem">
+        <div class="sec-lbl">Stack</div>
+        <div class="tags">
+          <span class="tag">HTML</span>
+          <span class="tag">CSS</span>
+          <span class="tag">JavaScript</span>
+          <span class="tag">Responsive Design</span>
+          <span class="tag">Web Development</span>
+        </div>
+      </div>
+    </div>
+  </div>`,
+
+  projects:p=>`
+    <div class="eyebrow" style="background:rgba(255,51,119,.1);color:#ff6699">6 Open Source Projects</div>
+    <div class="card-h">Things I've Built.</div>
+    <div class="cols">
+      <div>
+        ${[
+          {n:'🤖 Autonomous Quadruped Nav',d:'Real-time MPPI+RL for Unitree Go2. Joint optimization of trajectory, gait & foot placement. Zero collisions.',t:['Python','MPPI','RL','MuJoCo','ROS2'],u:'https://github.com/firasnouri11/DoomMPC',hi:true},
+          {n:'📝 Notizz',d:'Fully offline student workspace: rich text, PDF annotator, whiteboard, flashcards, Pomodoro. Native macOS app via Electron.',t:['Electron','JavaScript','HTML/CSS'],u:'https://github.com/firasnouri11/Notizz'},
+          {n:'📄 SenorCV',d:'Free browser-based CV builder. 10 templates, live preview, PDF export. No accounts, no servers.',t:['JavaScript','HTML/CSS','PDF'],u:'https://firasnouri11.github.io/senorcv/'},
+        ].map(p=>`<div class="pc" ${p.hi?'style="background:rgba(255,51,119,.08);border-color:rgba(255,51,119,.18)"':''}>
+          <div class="pc-top"><div class="pc-name">${p.n}</div><a href="${p.u}" target="_blank" class="pc-link">↗</a></div>
+          <div class="pc-desc">${p.d}</div>
+          <div class="tags">${p.t.map(x=>`<span class="tag">${x}</span>`).join('')}</div>
+        </div>`).join('')}
+      </div>
+      <div>
+        ${[
+          {n:'🔒 JazzBrowser',d:'Privacy-first desktop browser in Python. AES-256 storage, ad blocking, fingerprint protection, voice AI assistant.',t:['Python','AES-256','AI'],u:'https://github.com/firasnouri11/JAZZbrowser'},
+          {n:'🎯 Fokus Extension',d:'Chrome extension to block distracting sites. Customizable lists, clean settings UI.',t:['JavaScript','Chrome API'],u:'https://github.com/firasnouri11/Fokus_Extension'},
+          {n:'⚡ More on GitHub',d:'Find all my open-source work, experiments, and contributions at github.com/firasnouri11.',t:[],u:'https://github.com/firasnouri11'},
+        ].map(p=>`<div class="pc">
+          <div class="pc-top"><div class="pc-name">${p.n}</div><a href="${p.u}" target="_blank" class="pc-link">↗</a></div>
+          <div class="pc-desc">${p.d}</div>
+          <div class="tags">${p.t.map(x=>`<span class="tag">${x}</span>`).join('')}</div>
+        </div>`).join('')}
+      </div>
+    </div>`,
+
+  skills:p=>`
+    <div class="eyebrow" style="background:rgba(34,136,255,.1);color:#55aaff">Full-Stack + Robotics</div>
+    <div class="card-h">My Toolkit.</div>
+    <div class="cols">
+      ${[
+        {cat:'Languages',col:'#7efff5',items:[['Java',92],['Python',88],['JavaScript',82],['SQL',80],['PHP',65]]},
+        {cat:'Frameworks & Runtime',col:'#a78bfa',items:[['REST API',90],['gRPC',82],['ROS2',78],['PyTorch',78],['Electron',82]]},
+        {cat:'DevOps & Testing',col:'#34d399',items:[['Git / GitHub',90],['Docker',76],['CI/CD',80],['JUnit & Mockito',83]]},
+        {cat:'Databases & Robotics',col:'#60a5fa',items:[['MySQL',85],['Web Dev',90],['MuJoCo / MPPI',77],['NumPy / SciPy',82]]},
+      ].map(g=>`<div>
+        <div class="sec-lbl" style="color:${g.col}99">${g.cat}</div>
+        ${g.items.map(([n,v])=>`<div class="sb">
+          <div class="sb-head"><span class="sb-n">${n}</span><span class="sb-p">${v}%</span></div>
+          <div class="sb-t"><div class="sb-f" style="width:${v}%;background:linear-gradient(90deg,${g.col},${g.col}77)"></div></div>
+        </div>`).join('')}
+      </div>`).join('')}
+    </div>`,
+
+    contact:p=>`
+  <div class="eyebrow" style="background:rgba(255,68,102,.1);color:#ff7799">
+    Open to Meaningful Opportunities
+  </div>
+
+  <div class="card-h">Let's Build Something.</div>
+
+  <div class="cols">
+    <div class="body">
+      <p>
+        Based in <strong>Munich, Germany</strong>. Open to opportunities that allow me
+        to enrich my knowledge, step outside my comfort zone, and contribute to
+        challenging, impactful projects.
+      </p>
+
+      <p>
+        I am always interested in learning from strong teams, solving real problems,
+        and growing through hands-on technical work.
+      </p>
+    </div>
+
+    <div>
+      <a href="mailto:firasnouri1l@gmail.com" class="cl" style="border-color:rgba(255,68,102,.18);background:rgba(255,68,102,.04)">
+        <span class="cl-ico">✉</span>
+        <div>
+          <div class="cl-main">firasnouri1l@gmail.com</div>
+          <div class="cl-sub" style="color:#ff7799">EMAIL — FASTEST</div>
+        </div>
+      </a>
+
+      <a href="https://github.com/firasnouri11" target="_blank" class="cl">
+        <span class="cl-ico">⚡</span>
+        <div>
+          <div class="cl-main">github.com/firasnouri11</div>
+          <div class="cl-sub">CODE & PROJECTS</div>
+        </div>
+      </a>
+
+      <a href="thesis.pdf" target="_blank" class="cl">
+        <span class="cl-ico">📄</span>
+        <div>
+          <div class="cl-main">Bachelor's Thesis PDF</div>
+          <div class="cl-sub">SAFE LOCOMOTION / MPPI / TUM</div>
+        </div>
+      </a>
+    </div>
+  </div>`,
+};
+
+function openCard(idx){
+  const p=PLANETS[idx];
+  const fn=CARDS[p.id];
+  if(!fn)return;
+  document.getElementById('card-inner').innerHTML=fn(p);
+  document.getElementById('card').classList.add('open');
+  cardOpen=true;
+}
+function closeCard(){
+  document.getElementById('card').classList.remove('open');
+  cardOpen=false;
+}
+
+// ─── MAIN LOOP ────────────────────────────────────────────────────────────────
+let lastHUDUpdate=0;
+
+function tick(){
+  requestAnimationFrame(tick);
+  const dt=Math.min(clock.getDelta(),.05);
+  const t=clock.getElapsedTime();
+
+  // Planets — animate shaders + gentle float
+  for(let i=0,n=planetMeshes.length;i<n;i++){
+    const pm=planetMeshes[i];
+    pm.mat.uniforms.t.value=t;
+    pm.group.position.y=pm.baseY+Math.sin(t*.28+i*1.3)*1.1;
+    pm.sphere.rotation.y+=.0013+i*.00018;
+    pm.pLight.intensity=2.1+Math.sin(t*1.4+i*.7)*.7;
+    // Glow pulse — reduce frequency to save ops
+    if((i+Math.floor(t*8))%8===0){
+      pm.glow.material.opacity=.17+Math.sin(t*1.1+i)*.055;
+    }
+  }
+
+  // Camera fly
+  if(flyActive){
+    flyT+=dt;
+    const ep=eio(Math.min(flyT/flyDur,1));
+    const mid=new THREE.Vector3().lerpVectors(flyP0,flyP1,.5);
+    mid.y+=12;
+    const a=flyP0.clone().lerp(mid,ep);
+    const b=mid.clone().lerp(flyP1,ep);
+    camera.position.lerpVectors(a,b,ep);
+    yaw=flyY0+(flyY1-flyY0)*ep;
+    pitch=flyPi0+(flyPi1-flyPi0)*ep;
+    if(flyT>=flyDur){flyActive=false;}
+  } else {
+    // WASD — smooth velocity
+    const speed=(keys['ShiftLeft']||keys['ShiftRight'])?28:12;
+    const mv=new THREE.Vector3();
+    if(keys['KeyW']||keys['ArrowUp'])mv.z-=1;
+    if(keys['KeyS']||keys['ArrowDown'])mv.z+=1;
+    if(keys['KeyA']||keys['ArrowLeft'])mv.x-=1;
+    if(keys['KeyD']||keys['ArrowRight'])mv.x+=1;
+    if(keys['KeyQ'])mv.y+=1;
+    if(keys['KeyE'])mv.y-=1;
+    if(mv.lengthSq()>.01){
+      mv.normalize().multiplyScalar(speed*dt);
+      mv.applyEuler(new THREE.Euler(0,yaw,0));
+      vel.add(mv);
+    }
+    vel.multiplyScalar(.86);
+    camera.position.add(vel);
+  }
+
+  camera.rotation.order='YXZ';
+  camera.rotation.y=yaw;
+  camera.rotation.x=pitch;
+
+  // HUD — throttle to 30fps to save DOM thrash
+  hudTimer+=dt;
+  if(hudTimer>.033){
+    hudTimer=0;
+    updateHUD(t);
+  }
+
+  renderer.render(scene,camera);
+}
+
+function updateHUD(t){
+  const spd=(vel.length()*60).toFixed(2);
+  elVelVal.textContent=spd;
+  elVelVal2.textContent=spd+' AU/s';
+  const hdg=(((-yaw*180/Math.PI)%360)+360)%360;
+  const hdgStr=hdg.toFixed(0).padStart(3,'0')+'°';
+  elHdgNum.textContent=hdgStr;
+  elHdgTop.textContent=hdgStr;
+  const cp=camera.position;
+  elCoord.textContent=`${cp.x.toFixed(0)} / ${cp.y.toFixed(0)} / ${cp.z.toFixed(0)}`;
+
+  // Radar sweep
+  radarAngle+=.033*1.4;
+  const rx=26+23*Math.cos(radarAngle-Math.PI/2);
+  const ry=26+23*Math.sin(radarAngle-Math.PI/2);
+  elRsweep.setAttribute('x2',rx.toFixed(1));
+  elRsweep.setAttribute('y2',ry.toFixed(1));
+
+  // Radar blips — rebuild only when needed
+  let blipHTML='';
+  for(let i=0;i<PLANETS.length;i++){
+    const p=PLANETS[i];
+    const dx=p.pos[0]-camera.position.x,dz=p.pos[2]-camera.position.z;
+    const bx=26+dx/9,by=26+dz/9;
+    if(bx>2&&bx<50&&by>2&&by<50){
+      blipHTML+=`<circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="1.5" fill="${p.gc}" opacity=".8"/>`;
+    }
+  }
+  elRblips.innerHTML=blipHTML;
+}
+</script>
+</body>
+</html>
